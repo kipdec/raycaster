@@ -11,69 +11,48 @@
 
 // Stopped at 8:20 in part 2
 float px, py, pdx, pdy, pa;
+int flashLightOn = 0;
 
 typedef struct {
     int w, a, d, s;
-} ButtonKeys; ButtonKeys Keys;
+} ButtonKeys; 
 
+ButtonKeys Keys;
 
+float maxDist = 500;
+float maxBrightness = 0.5;
+int tick = 0;
 
 float degToRad(float a) { return a * M_PI /180.0;}
 float FixAng(float a) { if (a > 359) { a -=370;} if (a<0){a += 360;} return a;}
 
-float dist(float ax, float ay, float bx, float by, float any){
-    return ( sqrt((bx-ax) * (bx-ax) + (by-ay) * (by-ay)));
-}
-
-Ray drawVeriticalLines(int r, float ra){
-    int mx,my,mp,dof; float rx,ry,xo,yo;
-    dof = 0;
-    float disV = 1000000, vx = px, vy =py;
-    float nTan = -tan(ra);
-    if(ra > P2 && ra < P3){ 
-        rx = (((int) px >> 6) << 6) - 0.0001; 
-        ry=(px-rx) * nTan+py;
-        xo = -64; 
-        yo =-xo * nTan;
-    }; // Looking up
-    if(ra < P2 || ra > P3){ 
-        rx = (((int) px >> 6) << 6) + 64; 
-        ry=(px-rx) * nTan+py;
-        xo = 64; 
-        yo =-xo * nTan;
-    }; // Looking up
-    if(ra == 0 || ra == PI){
-        rx = px;
-        ry = py;
-        dof = 8;
+void checkFlashLight(){
+    if(flashLightOn == 1){
+        maxDist = 1000;
+    } else {
+        maxDist = 300;
     }
-    while(dof < 8){
-        mx = (int) (rx) >> 6;
-        my = (int)(ry) >> 6;
-        mp = my * mapX + mx;
-        if(mp > 0 && mp < mapX * mapY && map[mp] == 1){
-            // hit
-            vx = rx; 
-            vy = ry;
-            disV = dist(px, py, vx, vy, ra);
-            dof = 8;
-        } else {
-            rx += xo;
-            ry += yo;
-            dof += 1;
-        }
-    }
-    Ray ray = { vx, vy, disV };
-    return ray;
 }
 
 void drawRays2D()
 {
+
+    // ra = Ray Angle
+    // pa = Player Angle
     int r,mx,my,mp,dof; float rx,ry,ra,xo,yo,disT;
+
+    // offset the ray angle 30 degrees from the player
     ra=pa - DR * 30; 
+
+    // Shoot out 60 rays. 60 deg fov
     for(r=0; r<60; r++){
-        if(ra< 0){ra += 2*PI;} if(ra > 2 * PI){ ra -= 2 * PI;}
-        Ray hRay = calcHorizontalLines(
+
+        // Guards
+        if(ra< 0){ra += 2*PI;} 
+        if(ra > 2 * PI){ ra -= 2 * PI;}
+
+        // Calculate horizontal and vertical lines
+        struct Ray hRay = calcHorizontalLines(
             r, 
             ra,
             px,
@@ -82,19 +61,49 @@ void drawRays2D()
             mapY,
             map
         );
-        Ray vRay = drawVeriticalLines(r, ra);
-        float shade = 1;
+
+        struct Ray vRay = calcVerticalLines(
+            r, 
+            ra,
+            px,
+            py,
+            mapX,
+            mapY,
+            map
+        );
+
+        int isVray = 1;
+        // If we're loooking at a v wall
         if(vRay.dis < hRay.dis){
             rx = vRay.x;
             ry = vRay.y;
             disT = vRay.dis;
-            shade = 0.5;
         } 
+
+        // if we're looking at an h wall
         if(hRay.dis < vRay.dis) {
             rx = hRay.x;
             ry = hRay.y;
             disT = hRay.dis;
+            isVray = 0;
         }
+
+        // Used to keep track of shading
+        float curMaxDist = maxDist;
+        float curMaxBrightness = maxBrightness;
+        if(flashLightOn == 1 && r > 15 && r < 45){
+           curMaxDist = 1000; 
+           float dCenter = fabs(30 - r);
+           curMaxBrightness = (30 - dCenter) / 30;
+        }
+        float shade = curMaxBrightness - (disT/curMaxDist);
+        if(shade > 1) { shade = 1; };
+        if(shade < 0) { shade = 0; }
+        if(isVray == 1){
+            shade -= 0.1;
+        }
+
+
         glLineWidth(3);
         glBegin(GL_LINES);
         glVertex2i(px, py);
@@ -114,7 +123,7 @@ void drawRays2D()
         int y;
         float ty=ty_off*ty_step;
         float tx;
-        if(shade == 1){
+        if(isVray == 0){
             tx= (int)(rx/2.0)%32;
             if(ra < PI){tx = 31 - tx;}
         } else {
@@ -132,13 +141,16 @@ void drawRays2D()
     }
 }
 
-float frame1, frame2, fps;
+float oldFrame;
+float frame;
+float fps = 0;
+int numFrames = 0;
 
 void display(){
+    if(numFrames == 0){
+        oldFrame = glutGet(GLUT_ELAPSED_TIME);
+    }
     // frames per second
-    frame2 = glutGet(GLUT_ELAPSED_TIME);
-    fps = (frame2 - frame1);
-    frame1 = glutGet(GLUT_ELAPSED_TIME);
     if(Keys.a == 1){ pa -= 0.1; if (pa < 0){ pa += 2*PI; } pdx = cos(pa) * 5; pdy = sin(pa) *5;}
     if(Keys.d == 1){ pa += 0.1; if (pa > 2*PI){ pa -= 2*PI; } pdx = cos(pa) * 5; pdy = sin(pa) *5;}
     
@@ -159,9 +171,20 @@ void display(){
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     drawMap2D(map, mapX, mapY, mapS);
+    //checkFlashLight();
     drawRays2D();
     drawPlayer(px,py,pdx,pdy,pa);
+    drawFPS(fps);
     glutSwapBuffers();
+    numFrames++;
+    frame = glutGet(GLUT_ELAPSED_TIME);
+    if(frame - oldFrame > 1000){
+        fps = (numFrames * 1000) / (frame - oldFrame);
+        numFrames = 0;
+    }
+
+
+    tick++;
 }
 
 void ButtonDown(unsigned char key, int x, int y){
@@ -169,6 +192,13 @@ void ButtonDown(unsigned char key, int x, int y){
     if(key == 'd'){Keys.d = 1;}
     if(key == 's'){Keys.s = 1;}
     if(key == 'w'){Keys.w = 1;}
+    if(key == 'f'){
+        if(flashLightOn == 1){
+            flashLightOn = 0;
+        } else {
+            flashLightOn = 1;
+        }
+    }
     glutPostRedisplay();
 }
 void ButtonUp(unsigned char key, int x, int y){
@@ -188,7 +218,7 @@ void buttons(unsigned char key, int x, int y){
 }
 
 void init(){
-    glClearColor(0.3, 0.3, 0.3, 0);
+    glClearColor(0, 0, 0, 0);
     gluOrtho2D(0, 1024, 512, 0);
     px=300; py=300;pdx = cos(pa) * 5; pdy = sin(pa) *5;
 }

@@ -56,3 +56,53 @@ struct Ray calcHorizontalLines(
     struct Ray ray = { hx, hy, disH };
     return ray;
 }
+
+struct Ray calcVerticalLines(
+    int r, 
+    float ra, 
+    float px, 
+    float py, 
+    float mapX, 
+    float mapY, 
+    int map[]
+){
+    int mx,my,mp,dof; float rx,ry,xo,yo;
+    dof = 0;
+    float disV = 1000000, vx = px, vy =py;
+    float nTan = -tan(ra);
+    if(ra > P2 && ra < P3){ 
+        rx = (((int) px >> 6) << 6) - 0.0001; 
+        ry=(px-rx) * nTan+py;
+        xo = -64; 
+        yo =-xo * nTan;
+    }; // Looking up
+    if(ra < P2 || ra > P3){ 
+        rx = (((int) px >> 6) << 6) + 64; 
+        ry=(px-rx) * nTan+py;
+        xo = 64; 
+        yo =-xo * nTan;
+    }; // Looking up
+    if(ra == 0 || ra == PI){
+        rx = px;
+        ry = py;
+        dof = 8;
+    }
+    while(dof < 8){
+        mx = (int) (rx) >> 6;
+        my = (int)(ry) >> 6;
+        mp = my * mapX + mx;
+        if(mp > 0 && mp < mapX * mapY && map[mp] == 1){
+            // hit
+            vx = rx; 
+            vy = ry;
+            disV = dist(px, py, vx, vy, ra);
+            dof = 8;
+        } else {
+            rx += xo;
+            ry += yo;
+            dof += 1;
+        }
+    }
+    struct Ray ray = { vx, vy, disV };
+    return ray;
+}

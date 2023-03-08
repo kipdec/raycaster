@@ -35,3 +35,22 @@ void drawMap2D(int map[], int mapX, int mapY, int mapS){
         }
     }
 }
+
+void drawFPS(float fps){
+    int length = snprintf(NULL, 0, "%.1f", fps);
+    char *stringToPrint = malloc(length + 1);
+    snprintf(stringToPrint, length + 1, "%.1f", fps);
+    GLfloat color[3] = { 255, 0, 0 };
+    //printf("%s\n", stringToPrint);
+    printText(stringToPrint, color, 990, 12);
+    free(stringToPrint);
+}
+
+void printText(char *text, const GLfloat color[3], float posX, float posY){
+    glColor3fv(color);
+    glRasterPos2f(posX, posY);
+
+    while(*text){
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *text++);
+    }
+}
