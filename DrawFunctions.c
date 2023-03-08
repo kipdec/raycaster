@@ -38,7 +38,7 @@ void drawMap2D(int map[], int mapX, int mapY, int mapS){
 
 void drawFPS(float fps){
     int length = snprintf(NULL, 0, "%.1f", fps);
-    char *stringToPrint = malloc(length + 1);
+    char *stringToPrint = (char*)malloc(length + 1);
     snprintf(stringToPrint, length + 1, "%.1f", fps);
     GLfloat color[3] = { 255, 0, 0 };
     //printf("%s\n", stringToPrint);

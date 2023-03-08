@@ -232,7 +232,7 @@ int main(int argc, char* argv[]){
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(1024, 512);
     glutInitWindowPosition(200,200);
-    glutCreateWindow("Kip DeCastro");
+    glutCreateWindow("Raycast Demo");
     init();
 
     glutDisplayFunc(display);
